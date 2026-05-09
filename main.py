@@ -3,20 +3,18 @@ import aiohttp
 import csv
 import time
 import os
-
 from dotenv import load_dotenv
 
 
 load_dotenv()
-
 AIRLABS_API_KEY = os.getenv("AIRLABS_API_KEY")
 OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY")
 
 if not AIRLABS_API_KEY:
-    raise ValueError("❌ No se encontro AIRLABS_API_KEY en .env")
+    raise ValueError("No se encontro AIRLABS_API_KEY en .env")
 
 if not OPENWEATHER_API_KEY:
-    raise ValueError("❌ No se encontro OPENWEATHER_API_KEY en .env")
+    raise ValueError("No se encontro OPENWEATHER_API_KEY en .env")
 
 
 AIRLABS_URL = "https://airlabs.co/api/v9/schedules"
@@ -26,10 +24,19 @@ WEATHER_URL = "https://api.openweathermap.org/data/2.5/weather"
 semaforo = asyncio.Semaphore(10)
 
 
-CSV_FILE = f"vuelos_clima_{int(time.time())}.csv"
+# Se crea el folder data si no existe
+os.makedirs("data", exist_ok=True)
 
-#Códigos de aeropuerto para obtener información de airlabs y sus coordenadas para obtener el clima 
 
+# Se define la ruta final del csv dentro del folder data
+CSV_FILE = os.path.join(
+    "data",
+    f"vuelos_clima_{int(time.time())}.csv"
+)
+
+
+# Códigos de aeropuerto para obtener información de airlabs
+# y sus coordenadas para obtener el clima
 AEROPUERTOS_COORDS = {
     "ORD": (41.9742, -87.9073),
     "ATL": (33.6407, -84.4277),
@@ -133,8 +140,8 @@ AEROPUERTOS_COORDS = {
     "AGP": (36.6749, -4.4991)
 }
 
-# Solicitud de peticiones del clima
 
+# Se realizan solicitudes asincronas para obtener el clima
 async def obtener_clima(session, lat, lon):
 
     params = {
@@ -146,21 +153,63 @@ async def obtener_clima(session, lat, lon):
 
     try:
 
-        async with session.get(WEATHER_URL, params=params) as response:
+        async with session.get(
+            WEATHER_URL,
+            params=params
+        ) as response:
 
             data = await response.json()
 
             return {
-                "weather_temp": data.get("main", {}).get("temp"),
-                "weather_temp_max": data.get("main", {}).get("temp_max"),
-                "weather_temp_min": data.get("main", {}).get("temp_min"),
-                "weather_pressure": data.get("main", {}).get("pressure"),
-                "weather_humidity": data.get("main", {}).get("humidity"),
-                "weather_sea_level": data.get("main", {}).get("sea_level"),
-                "weather_visibility": data.get("visibility"),
-                "weather_wind_speed": data.get("wind", {}).get("speed"),
-                "weather_rain_1h": data.get("rain", {}).get("1h", 0),
-                "weather_clouds": data.get("clouds", {}).get("all")
+
+                "weather_temp": data.get(
+                    "main",
+                    {}
+                ).get("temp"),
+
+                "weather_temp_max": data.get(
+                    "main",
+                    {}
+                ).get("temp_max"),
+
+                "weather_temp_min": data.get(
+                    "main",
+                    {}
+                ).get("temp_min"),
+
+                "weather_pressure": data.get(
+                    "main",
+                    {}
+                ).get("pressure"),
+
+                "weather_humidity": data.get(
+                    "main",
+                    {}
+                ).get("humidity"),
+
+                "weather_sea_level": data.get(
+                    "main",
+                    {}
+                ).get("sea_level"),
+
+                "weather_visibility": data.get(
+                    "visibility"
+                ),
+
+                "weather_wind_speed": data.get(
+                    "wind",
+                    {}
+                ).get("speed"),
+
+                "weather_rain_1h": data.get(
+                    "rain",
+                    {}
+                ).get("1h", 0),
+
+                "weather_clouds": data.get(
+                    "clouds",
+                    {}
+                ).get("all")
             }
 
     except Exception as e:
@@ -168,6 +217,7 @@ async def obtener_clima(session, lat, lon):
         print(f"Error clima: {e}")
 
         return {
+
             "weather_temp": None,
             "weather_temp_max": None,
             "weather_temp_min": None,
@@ -180,31 +230,49 @@ async def obtener_clima(session, lat, lon):
             "weather_clouds": None
         }
 
-#Solicitudes asincronas a ambas api dadas por el código del aeropuerto
 
-async def obtener_vuelos(session, aeropuerto, lat, lon):
+# Se realizan solicitudes asincronas para obtener vuelos y clima
+async def obtener_vuelos(
+    session,
+    aeropuerto,
+    lat,
+    lon
+):
 
     async with semaforo:
 
         try:
 
-            clima = await obtener_clima(session, lat, lon)
+            clima = await obtener_clima(
+                session,
+                lat,
+                lon
+            )
 
             params = {
                 "dep_iata": aeropuerto,
                 "api_key": AIRLABS_API_KEY
             }
 
-            async with session.get(AIRLABS_URL, params=params) as response:
+            async with session.get(
+                AIRLABS_URL,
+                params=params
+            ) as response:
 
                 if response.status != 200:
 
-                    print(f"Error {response.status} en {aeropuerto}")
+                    print(
+                        f"Error {response.status} en {aeropuerto}"
+                    )
+
                     return []
 
                 data = await response.json()
 
-                vuelos = data.get("response", [])
+                vuelos = data.get(
+                    "response",
+                    []
+                )
 
                 resultados = []
 
@@ -212,7 +280,7 @@ async def obtener_vuelos(session, aeropuerto, lat, lon):
 
                     fila = {
 
-                        # Datos obtenidos de la api de los vuelos
+                        # Datos del vuelo
 
                         "flight_iata": vuelo.get("flight_iata"),
                         "dep_iata": vuelo.get("dep_iata"),
@@ -223,7 +291,7 @@ async def obtener_vuelos(session, aeropuerto, lat, lon):
                         "status": vuelo.get("status"),
                         "delayed": vuelo.get("delayed"),
 
-                        # Datos obtenidos de la api del clima 
+                        # Datos del clima
 
                         "weather_temp": clima["weather_temp"],
                         "weather_temp_max": clima["weather_temp_max"],
@@ -239,7 +307,9 @@ async def obtener_vuelos(session, aeropuerto, lat, lon):
 
                     resultados.append(fila)
 
-                print(f"{aeropuerto}: {len(resultados)} vuelos")
+                print(
+                    f"{aeropuerto}: {len(resultados)} vuelos"
+                )
 
                 await asyncio.sleep(0.2)
 
@@ -248,14 +318,14 @@ async def obtener_vuelos(session, aeropuerto, lat, lon):
         except Exception as e:
 
             print(f"Error en {aeropuerto}: {e}")
+
             return []
 
 
+# Se guardan todos los datos obtenidos en un csv
 def guardar_csv(datos):
 
     columnas = [
-
-        #Columnas referentes al status de los vuelos
 
         "flight_iata",
         "dep_iata",
@@ -265,8 +335,6 @@ def guardar_csv(datos):
         "arr_time",
         "status",
         "delayed",
-
-        #Columnas referentes al clima
 
         "weather_temp",
         "weather_temp_max",
@@ -280,7 +348,12 @@ def guardar_csv(datos):
         "weather_clouds"
     ]
 
-    with open(CSV_FILE, "w", newline="", encoding="utf-8") as archivo:
+    with open(
+        CSV_FILE,
+        "w",
+        newline="",
+        encoding="utf-8"
+    ) as archivo:
 
         writer = csv.DictWriter(
             archivo,
@@ -288,22 +361,32 @@ def guardar_csv(datos):
         )
 
         writer.writeheader()
+
         writer.writerows(datos)
 
-    print(f"\nCSV guardado: {CSV_FILE}")
+    print(f"\nCSV guardado en: {CSV_FILE}")
 
 
+# Se ejecutan todas las tareas asincronas
 async def main():
 
-    timeout = aiohttp.ClientTimeout(total=30)
+    timeout = aiohttp.ClientTimeout(
+        total=30
+    )
 
-    async with aiohttp.ClientSession(timeout=timeout) as session:
+    async with aiohttp.ClientSession(
+        timeout=timeout
+    ) as session:
 
         tareas = []
 
-        for aeropuerto, (lat, lon) in AEROPUERTOS_COORDS.items():
+        for aeropuerto, (
+            lat,
+            lon
+        ) in AEROPUERTOS_COORDS.items():
 
             tareas.append(
+
                 obtener_vuelos(
                     session,
                     aeropuerto,
@@ -312,19 +395,25 @@ async def main():
                 )
             )
 
-        resultados = await asyncio.gather(*tareas)
-
+        resultados = await asyncio.gather(
+            *tareas
+        )
 
         datos_finales = [
+
             vuelo
+
             for lista in resultados
+
             for vuelo in lista
         ]
 
-        print(f"\nTotal vuelos: {len(datos_finales)}")
-
+        print(
+            f"\nTotal vuelos: {len(datos_finales)}"
+        )
         guardar_csv(datos_finales)
 
 
 if __name__ == "__main__":
+
     asyncio.run(main())
