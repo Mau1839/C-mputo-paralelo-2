@@ -221,6 +221,7 @@ async def obtener_vuelos(session, aeropuerto, lat, lon):
                         "arr_iata": vuelo.get("arr_iata"),
                         "arr_time": vuelo.get("arr_time"),
                         "status": vuelo.get("status"),
+                        "delayed": vuelo.get("delayed"),
 
                         # Datos obtenidos de la api del clima 
 
@@ -263,6 +264,7 @@ def guardar_csv(datos):
         "arr_iata",
         "arr_time",
         "status",
+        "delayed",
 
         #Columnas referentes al clima
 
