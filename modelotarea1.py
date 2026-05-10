@@ -20,6 +20,7 @@ from sklearn.metrics import (
     confusion_matrix,
 )
 import shap
+from numba import njit, prange
 
 
 plt.style.use("ggplot")
@@ -40,9 +41,23 @@ df["delayed"] = df["delayed"].fillna(0)
 
 # Se realiza una estandarización de los tipos de datos
 # Ademas, de un manejo de campos nulos
-df["retrasado"] = (
-    df["delayed"] > 10
-).astype(int)
+@njit(parallel=True)
+def calcular_retrasado(delayed):
+    resultado = np.zeros(delayed.shape[0], dtype=np.int32)
+
+    for i in prange(delayed.shape[0]):
+        if delayed[i] > 10:
+            resultado[i] = 1
+        else:
+            resultado[i] = 0
+
+    return resultado
+
+
+df["retrasado"] = calcular_retrasado(
+    df["delayed"].values.astype(np.float64)
+)
+
 print(df["retrasado"].value_counts())
 
 # Se crea la variable objetivo retrasado
@@ -54,32 +69,108 @@ df["ruta"] = (
     df["dep_iata"] + "_" + df["arr_iata"]
 )
 
-df["hora_pico"] = (
-    df["hora"].between(6, 9) |
-    df["hora"].between(17, 20)
-).astype(int)
+@njit(parallel=True)
+def calcular_hora_pico(horas):
+    resultado = np.zeros(horas.shape[0], dtype=np.int32)
 
-df["vuelo_nocturno"] = (
-    (df["hora"] >= 22) |
-    (df["hora"] <= 5)
-).astype(int)
+    for i in prange(horas.shape[0]):
+
+        if (
+            (6 <= horas[i] <= 9) or
+            (17 <= horas[i] <= 20)
+        ):
+            resultado[i] = 1
+
+    return resultado
+
+
+@njit(parallel=True)
+def calcular_vuelo_nocturno(horas):
+    resultado = np.zeros(horas.shape[0], dtype=np.int32)
+
+    for i in prange(horas.shape[0]):
+
+        if (
+            (horas[i] >= 22) or
+            (horas[i] <= 5)
+        ):
+            resultado[i] = 1
+
+    return resultado
+
+
+df["hora_pico"] = calcular_hora_pico(
+    df["hora"].values.astype(np.int32)
+)
+
+df["vuelo_nocturno"] = calcular_vuelo_nocturno(
+    df["hora"].values.astype(np.int32)
+)
 
 # Se realiza una ingenieria de características para crear nuevas variables
 # Estas se encuentran relacionadas con los componentes de la fecha y hora
-df["delta_temp"] = (
-    df["weather_temp_max"] -
-    df["weather_temp_min"]
+@njit(parallel=True)
+def calcular_delta_temp(temp_max, temp_min):
+    resultado = np.zeros(temp_max.shape[0], dtype=np.float64)
+
+    for i in prange(temp_max.shape[0]):
+        resultado[i] = temp_max[i] - temp_min[i]
+
+    return resultado
+
+
+df["delta_temp"] = calcular_delta_temp(
+    df["weather_temp_max"].values.astype(np.float64),
+    df["weather_temp_min"].values.astype(np.float64)
 )
 
-df["clima_severo"] = (
-    (df["weather_visibility"] < 3000) |
-    (df["weather_wind_speed"] > 12) |
-    (df["weather_clouds"] > 90)
-).astype(int)
+@njit(parallel=True)
+def calcular_clima_severo(
+    visibility,
+    wind_speed,
+    clouds
+):
+    resultado = np.zeros(
+        visibility.shape[0],
+        dtype=np.int32
+    )
 
-df["humedad_alta"] = (
-    df["weather_humidity"] > 85
-).astype(int)
+    for i in prange(visibility.shape[0]):
+
+        if (
+            (visibility[i] < 3000) or
+            (wind_speed[i] > 12) or
+            (clouds[i] > 90)
+        ):
+            resultado[i] = 1
+
+    return resultado
+
+
+@njit(parallel=True)
+def calcular_humedad_alta(humidity):
+    resultado = np.zeros(
+        humidity.shape[0],
+        dtype=np.int32
+    )
+
+    for i in prange(humidity.shape[0]):
+
+        if humidity[i] > 85:
+            resultado[i] = 1
+
+    return resultado
+
+
+df["clima_severo"] = calcular_clima_severo(
+    df["weather_visibility"].values.astype(np.float64),
+    df["weather_wind_speed"].values.astype(np.float64),
+    df["weather_clouds"].values.astype(np.float64)
+)
+
+df["humedad_alta"] = calcular_humedad_alta(
+    df["weather_humidity"].values.astype(np.float64)
+)
 
 # Se realiza una ingenieria de características para crear nuevas variables
 # Estas se encuentran relacionadas con los componentes del clima
@@ -190,9 +281,26 @@ print(random_search.best_params_)
 # Se muestra los mejores parámetros encontrados en la optimización
 y_prob = modelo.predict_proba(X_test)[:, 1]
 threshold = 0.30
-y_pred = (
-    y_prob > threshold
-).astype(int)
+
+@njit(parallel=True)
+def aplicar_threshold(probabilidades, threshold):
+    resultado = np.zeros(
+        probabilidades.shape[0],
+        dtype=np.int32
+    )
+
+    for i in prange(probabilidades.shape[0]):
+
+        if probabilidades[i] > threshold:
+            resultado[i] = 1
+
+    return resultado
+
+
+y_pred = aplicar_threshold(
+    y_prob.astype(np.float64),
+    threshold
+)
 
 # Se ajusta el umbral de clasificación para mejorar el rendimiento del modelo
 accuracy = accuracy_score(y_test, y_pred)
