@@ -6,6 +6,31 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 from catboost import CatBoostClassifier
+import os
+import subprocess
+import sys
+
+# ── Auto-ejecución de data_engine_mpi.py si no existe la caché ──
+def ejecutar_mpi():
+    cache_path = "data/mpi_cache_retrasos.csv"
+    if not os.path.exists(cache_path):
+        print("[AeroBI] Caché MPI no encontrada. Ejecutando data_engine_mpi.py con 4 procesos...")
+        try:
+            resultado = subprocess.run(
+                ["mpirun", "-n", "4", sys.executable, "data_engine_mpi.py"],
+                check=True,
+                capture_output=False,
+            )
+            print("[AeroBI] data_engine_mpi.py completado exitosamente.")
+        except subprocess.CalledProcessError as e:
+            print(f"[AeroBI] ERROR al ejecutar MPI: {e}")
+            print("[AeroBI] Continuando sin caché MPI...")
+        except FileNotFoundError:
+            print("[AeroBI] ERROR: 'mpirun' no encontrado. Verifica tu instalación de MPI.")
+    else:
+        print(f"[AeroBI] Caché MPI encontrada. Saltando ejecución de data_engine_mpi.py.")
+
+ejecutar_mpi()
 
 # Encapsulamiento de estilos
 
@@ -19,12 +44,15 @@ html, body {
     font-family: 'DM Sans', sans-serif !important;
     color: #F1F5F9 !important;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* ── Scrollbar ── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #0A0E1A; }
 ::-webkit-scrollbar-thumb { background: #1F2D45; border-radius: 3px; }
+/* Firefox */
+html { scrollbar-width: thin; scrollbar-color: #1F2D45 #0A0E1A; }
 
 /* ── Sidebar ── */
 .sidebar-card {
@@ -148,23 +176,6 @@ html, body {
 .form-control:focus { border-color: #3B82F6 !important;
     box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important; }
 
-/* ── Dropdown overrides ── */
-.Select-control { background: #0A0E1A !important; border: 1px solid #1F2D45 !important;
-    border-radius: 8px !important; }
-.Select-control:hover { border-color: #3B82F6 !important; }
-.Select--is-focused .Select-control { border-color: #3B82F6 !important;
-    box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important; }
-.Select-value-label, .Select-input > input { color: #F1F5F9 !important; }
-.Select-placeholder { color: #64748B !important; }
-.Select-menu-outer { background: #1C2333 !important; border: 1px solid #1F2D45 !important;
-    border-radius: 8px !important; margin-top: 4px !important; }
-.Select-option { background: transparent !important; color: #94A3B8 !important;
-    font-size: 13px; padding: 10px 14px !important; }
-.Select-option.is-focused { background: #1F2D45 !important; color: #F1F5F9 !important; }
-.Select-option.is-selected { background: rgba(59,130,246,.2) !important;
-    color: #3B82F6 !important; }
-.Select-arrow { border-color: #64748B transparent transparent !important; }
-
 /* Dash v2 react-select overrides */
 .dash-dropdown .Select__control {
     background: #0A0E1A !important; border: 1px solid #1F2D45 !important; border-radius: 8px !important; }
@@ -274,8 +285,7 @@ html, body {
 """
 
 BASE_LAYOUT = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
+    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
     font=dict(family="DM Sans", color="#94A3B8", size=12),
     xaxis=dict(gridcolor="#1F2D45", zerolinecolor="#1F2D45", tickfont=dict(color="#64748B", size=11)),
     yaxis=dict(gridcolor="#1F2D45", zerolinecolor="#1F2D45", tickfont=dict(color="#64748B", size=11)),
@@ -287,33 +297,32 @@ BASE_LAYOUT = dict(
 def pro_title(text):
     return dict(text=text, font=dict(color="#F1F5F9", size=14, family="DM Sans"), x=0.02, xanchor="left")
 
-CHART_COLORS = ["#3B82F6", "#06B6D4", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444"]
 BLUE_CYAN = ["#1E3A5F", "#1E4976", "#1A5FAD", "#3B82F6", "#60A5FA", "#06B6D4", "#67E8F9"]
 
-
 # Arranque de la App
-app = dash.Dash(
-    __name__,
-    external_stylesheets=[dbc.themes.BOOTSTRAP],  
-    title="Flight Intelligence · AeroBI",
-    meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
-)
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], title="Flight Intelligence · AeroBI")
 server = app.server
 
+# ── Inyectar CSS personalizado en el <head> (sin esto no hay estilos) ──
 _orig = app.index_string
 app.index_string = _orig.replace("</head>", f"<style>{CUSTOM_CSS}</style></head>")
 
+# --- INTEGRACIÓN MPI ---
+def cargar_datos_mpi():
+    if os.path.exists("data/mpi_cache_retrasos.csv"):
+        return pd.read_csv("data/mpi_cache_retrasos.csv")
+    else:
+        print("Caché MPI no encontrada. Por favor ejecuta mpirun primero.")
+        return pd.DataFrame(columns=["dep_iata", "retraso_promedio", "retraso_maximo"])
 
-# Carga del modelo
+df_completo = pd.read_csv("data/vuelos_clima_1778363496.csv")
+df_mpi_cache = cargar_datos_mpi()
+
 def cargar_modelo():
     m = CatBoostClassifier()
     m.load_model("models/modelotarea1.cbm")
     return m
 
-def cargar_datos():
-    return pd.read_csv("data/vuelos_clima_1778363496.csv")
-
-df = cargar_datos()
 modelo = cargar_modelo()
 
 FEATURES = [
@@ -323,93 +332,61 @@ FEATURES = [
     "weather_clouds", "hora", "dia_semana", "hora_pico",
     "vuelo_nocturno", "clima_severo", "humedad_alta",
 ]
-DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 
-
-# Estructura del Card
 def metric_card(label, value, icon=""):
     return html.Div([
         html.Div(f"{icon}  {label}".strip(), className="metric-label"),
         html.Div(value, className="metric-value"),
     ], className="metric-card")
 
+# --- GRÁFICA ALIMENTADA POR MPI ---
 retrasos_apt = (
-    df[df["delayed"] > 0]
-    .groupby("dep_iata")["delayed"]
-    .mean()
-    .sort_values(ascending=False)
+    df_mpi_cache
+    .sort_values("retraso_promedio", ascending=False)
     .head(15)
-    .reset_index()
 )
-retrasos_apt.columns = ["Aeropuerto", "Retraso Promedio (min)"]
 
 fig_airports = go.Figure(go.Bar(
-    x=retrasos_apt["Aeropuerto"],
-    y=retrasos_apt["Retraso Promedio (min)"],
+    x=retrasos_apt["dep_iata"],
+    y=retrasos_apt["retraso_promedio"],
     marker=dict(
-        color=retrasos_apt["Retraso Promedio (min)"],
-        colorscale=BLUE_CYAN,
-        line=dict(width=0),
+        color=retrasos_apt["retraso_promedio"],
+        colorscale=BLUE_CYAN, line=dict(width=0),
     ),
     hovertemplate="<b>%{x}</b><br>Retraso Prom: %{y:.1f} min<extra></extra>",
 ))
-fig_airports.update_layout(
-    **BASE_LAYOUT,
-    title=pro_title("Top 15 Aeropuertos · Retraso Promedio"),
-    bargap=0.35,
-)
+fig_airports.update_layout(**BASE_LAYOUT, title=pro_title("Top 15 Aeropuertos (Procesado vía MPI)"), bargap=0.35)
 
-
-# Cargar Caracteristicas del Modelo
+# Cargar Características del Modelo
 importancias = modelo.get_feature_importance()
-feat_imp = (
-    pd.DataFrame({"Feature": FEATURES, "Importance": importancias})
-    .sort_values("Importance", ascending=True)
-    .tail(10)
-)
+feat_imp = pd.DataFrame({"Feature": FEATURES, "Importance": importancias}).sort_values("Importance", ascending=True).tail(10)
 
 fig_imp = go.Figure(go.Bar(
-    x=feat_imp["Importance"],
-    y=feat_imp["Feature"],
-    orientation="h",
-    marker=dict(
-        color=feat_imp["Importance"],
-        colorscale=BLUE_CYAN,
-        line=dict(width=0),
-    ),
+    x=feat_imp["Importance"], y=feat_imp["Feature"], orientation="h",
+    marker=dict(color=feat_imp["Importance"], colorscale=BLUE_CYAN, line=dict(width=0)),
     hovertemplate="<b>%{y}</b><br>Importancia: %{x:.2f}<extra></extra>",
 ))
-fig_imp.update_layout(
-    **BASE_LAYOUT,
-    title=pro_title("Importancia de Variables · Top 10"),
-    xaxis_title="",
-    yaxis_title="",
-    bargap=0.35,
-)
+fig_imp.update_layout(**BASE_LAYOUT, title=pro_title("Importancia de Variables"), xaxis_title="", yaxis_title="", bargap=0.35)
 
+# ── FIX 1: usar df_completo['delayed'] en lugar de df['delayed'] ──
+retraso_global_promedio = df_completo['delayed'].mean() if 'delayed' in df_completo.columns else 0
+retraso_global_max = df_mpi_cache['retraso_maximo'].max() if not df_mpi_cache.empty else 0
 
-# Slide 1
 tab_datos = dbc.Tab(
-    label="Exploración",
-    tab_id="tab-datos",
+    label="Exploración", tab_id="tab-datos",
     children=[
         dbc.Row([
-            dbc.Col(metric_card("Retraso Promedio", f"{df['delayed'].mean():.1f} min"), md=3),
-            dbc.Col(metric_card("Retraso Máximo",   f"{int(df['delayed'].max())} min"),  md=3),
-            dbc.Col(metric_card("Vuelos Analizados", f"{len(df):,}"), md=3),
-            dbc.Col(metric_card("Aeropuertos", str(df['dep_iata'].nunique())), md=3),
+            dbc.Col(metric_card("Retraso Promedio", f"{retraso_global_promedio:.1f} min"), md=3),
+            dbc.Col(metric_card("Retraso Máximo",   f"{int(retraso_global_max)} min"),  md=3),
+            dbc.Col(metric_card("Vuelos Analizados", f"{len(df_completo):,}"), md=3),
+            # ── FIX 2: df_completo['dep_iata'].nunique() en vez de dep_iata.nunique() ──
+            dbc.Col(metric_card("Aeropuertos", str(df_completo['dep_iata'].nunique())), md=3),
         ], className="g-3 mb-4"),
         html.Hr(className="divider"),
-        html.Div(
-            dcc.Graph(figure=fig_airports, config={"displayModeBar": False},
-                      style={"height": "360px"}),
-            className="graph-card",
-        ),
+        html.Div(dcc.Graph(figure=fig_airports, config={"displayModeBar": False}, style={"height": "360px"}), className="graph-card"),
     ],
 )
 
-
-# Slide 2
 tab_rendimiento = dbc.Tab(
     label="Rendimiento",
     tab_id="tab-rendimiento",
@@ -457,7 +434,6 @@ tab_rendimiento = dbc.Tab(
 )
 
 
-# Slide 3
 def form_group(label, children):
     return html.Div([
         html.Label(label, className="form-label-pro"),
@@ -469,24 +445,23 @@ tab_prediccion = dbc.Tab(
     tab_id="tab-prediccion",
     children=[
         dbc.Row([
-            # Detalles del vuelo
             dbc.Col([
                 html.Div("Detalles del Vuelo", className="section-title"),
                 form_group("Aeropuerto de Origen",
                     dcc.Dropdown(
                         id="origen",
-                        options=[{"label": v, "value": v} for v in sorted(df["dep_iata"].unique())],
-                        value=df["dep_iata"].iloc[0],
-                        style={"color": "#212529"},
+                        # ── FIX 3: df_completo["dep_iata"].unique() ──
+                        options=[{"label": v, "value": v} for v in sorted(df_completo["dep_iata"].unique())],
+                        value=df_completo["dep_iata"].iloc[0],
                         optionHeight=35,
                     )
                 ),
                 form_group("Aeropuerto de Destino",
                     dcc.Dropdown(
                         id="destino",
-                        options=[{"label": v, "value": v} for v in sorted(df["arr_iata"].unique())],
-                        value=df["arr_iata"].iloc[0],
-                        style={"color": "#212529"},
+                        # ── FIX 4: df_completo["arr_iata"].unique() ──
+                        options=[{"label": v, "value": v} for v in sorted(df_completo["arr_iata"].unique())],
+                        value=df_completo["arr_iata"].iloc[0],
                         optionHeight=35,
                     )
                 ),
@@ -498,7 +473,6 @@ tab_prediccion = dbc.Tab(
                 ),
             ], md=6),
 
-            # Detalles del clima
             dbc.Col([
                 html.Div("Condiciones Climáticas", className="section-title"),
                 form_group("Temperatura (°C)",
@@ -530,8 +504,9 @@ tab_prediccion = dbc.Tab(
 )
 
 
-delayed_pct = (df["delayed"] > 0).mean() * 100
-rutas_unicas = df["ruta"].nunique() if "ruta" in df.columns else "—"
+# ── FIX 5: df_completo["delayed"] y df_completo["ruta"] en sidebar ──
+delayed_pct = (df_completo["delayed"] > 0).mean() * 100
+rutas_unicas = df_completo["ruta"].nunique() if "ruta" in df_completo.columns else "—"
 
 sidebar = html.Div([
     html.Div([
@@ -541,8 +516,9 @@ sidebar = html.Div([
     ]),
     html.Div("Dataset", className="section-title"),
     html.Div([
-        html.Div([html.Span("Vuelos", className="stat-key"), html.Span(f"{len(df):,}", className="stat-val")], className="stat-row"),
-        html.Div([html.Span("Aeropuertos", className="stat-key"), html.Span(str(df['dep_iata'].nunique()), className="stat-val")], className="stat-row"),
+        # ── FIX 6: len(df_completo) y df_completo['dep_iata'].nunique() ──
+        html.Div([html.Span("Vuelos", className="stat-key"), html.Span(f"{len(df_completo):,}", className="stat-val")], className="stat-row"),
+        html.Div([html.Span("Aeropuertos", className="stat-key"), html.Span(str(df_completo['dep_iata'].nunique()), className="stat-val")], className="stat-row"),
         html.Div([html.Span("% con Retraso", className="stat-key"), html.Span(f"{delayed_pct:.1f}%", className="stat-val")], className="stat-row"),
     ], style={"marginBottom": "24px"}),
     html.Div("Modelo", className="section-title"),
@@ -558,13 +534,11 @@ sidebar = html.Div([
 ], className="sidebar-card")
 
 
-# Layout de App
 app.layout = html.Div(
     style={"minHeight": "100vh", "background": "#0A0E1A", "padding": "32px"},
     children=[
         dcc.Interval(id="refresh-interval", interval=5 * 60 * 1000, n_intervals=0),
 
-        # Header
         html.Div([
             html.Div([
                 html.H1("AeroBI | Dashboard de Predicción de Retrasos", className="app-title"),
@@ -576,12 +550,8 @@ app.layout = html.Div(
             ),
         ], className="app-header"),
 
-        # Body
         dbc.Row([
-            # Sidebar
             dbc.Col(sidebar, xs=12, md=2, style={"marginBottom": "16px"}),
-
-            # Main
             dbc.Col(
                 html.Div([
                     dbc.Tabs(
@@ -597,7 +567,6 @@ app.layout = html.Div(
 )
 
 
-# Funciones CallBacks
 @app.callback(
     Output("resultado-prediccion", "children"),
     Input("btn-predecir", "n_clicks"),
@@ -664,7 +633,6 @@ def predecir(n, origen, destino, dia, hora, temp, humedad, viento, vis):
         margin=dict(t=20, b=10, l=20, r=20),
     )
 
-    # Resultados del Modelo
     if is_delayed:
         result_content = html.Div([
             html.Div("⚠ ALERTA DE RETRASO", style={
