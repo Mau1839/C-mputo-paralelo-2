@@ -453,7 +453,7 @@ tab_prediccion = dbc.Tab(
                         # ── FIX 3: df_completo["dep_iata"].unique() ──
                         options=[{"label": v, "value": v} for v in sorted(df_completo["dep_iata"].unique())],
                         value=df_completo["dep_iata"].iloc[0],
-                        optionHeight=35,
+                        optionHeight=35,style={"color": "#212529"},
                     )
                 ),
                 form_group("Aeropuerto de Destino",
@@ -462,7 +462,7 @@ tab_prediccion = dbc.Tab(
                         # ── FIX 4: df_completo["arr_iata"].unique() ──
                         options=[{"label": v, "value": v} for v in sorted(df_completo["arr_iata"].unique())],
                         value=df_completo["arr_iata"].iloc[0],
-                        optionHeight=35,
+                        optionHeight=35,style={"color": "#212529"},
                     )
                 ),
                 form_group("Día de la Semana (0=Lun … 6=Dom)",
