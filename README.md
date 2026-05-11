@@ -1,17 +1,18 @@
 # Proyecto Parcial 2 — Cómputo Paralelo y Distribuido
 
-Proyecto desarrollado en Python para la implementación del manejo de cómputo en paralelo.  
-Mediante el uso de peticiones a APIs se realiza un procesamiento de datos para alimentar un modelo de predicción, con la finalidad de calcular el tiempo de retraso que un avión puede llegar a tener. El modelo utilizado considera tanto datos de la aerolínea como factores meteorológicos. Además, se permite al usuario interactuar con el modelo mediante un dashboard interactivo, así como monitorear variables estadísticas.
+Proyecto desarrollado en Python para la implementación de técnicas de cómputo paralelo y distribuido aplicadas al análisis predictivo de retrasos de vuelos. Mediante el uso de peticiones concurrentes a APIs externas se realiza una recolección masiva de datos aeronáuticos y meteorológicos para alimentar un modelo de Machine Learning orientado a la predicción de retrasos.
+
+El sistema integra procesamiento paralelo, optimización computacional, análisis estadístico y visualización interactiva mediante un dashboard desarrollado con Dash y Plotly.
 
 ---
 
 # APIs utilizadas
 
-##  AirLabs API
+## AirLabs API
 
 La API de AirLabs se utiliza para obtener información de vuelos en tiempo real, incluyendo horarios, estados de vuelo, aeropuertos de salida y llegada, así como indicadores de retraso.
 
- https://airlabs.co
+https://airlabs.co
 
 ---
 
@@ -19,13 +20,15 @@ La API de AirLabs se utiliza para obtener información de vuelos en tiempo real,
 
 La API de OpenWeatherMap permite consultar información meteorológica asociada a cada aeropuerto, integrando variables climáticas relevantes para el análisis predictivo.
 
- https://openweathermap.org/api
+https://openweathermap.org/api
+
+---
 
 # Variables recolectadas
 
 ## Información de vuelos
 
-El dataset generado integra variables aeronáuticas y meteorológicas que posteriormente pueden utilizarse en modelos de Machine Learning y análisis estadístico.
+El dataset generado integra variables aeronáuticas y meteorológicas utilizadas posteriormente en modelos de Machine Learning y análisis estadístico.
 
 - `flight_iata`
 - `dep_iata`
@@ -55,67 +58,125 @@ El dataset generado integra variables aeronáuticas y meteorológicas que poster
 
 # Procesamiento concurrente
 
-El sistema implementa control de concurrencia mediante un semáforo:
+El sistema implementa control de concurrencia mediante un semáforo de `asyncio` para limitar el número de solicitudes simultáneas realizadas hacia las APIs externas.
 
 ```python
 semaforo = asyncio.Semaphore(10)
 ```
 
-Esto permite limitar el número de solicitudes simultáneas, evitando saturar las APIs y mejorando la estabilidad del sistema durante la ejecución.
+Esto permite evitar saturación de servicios, mejorar estabilidad y controlar el consumo de recursos durante la ejecución.
 
 ---
 
-Para ejecutar el proyecto es necesario crear un archivo `.env` en la raíz del proyecto con las credenciales correspondientes de ambas APIs.
+# Variables de entorno
+
+Para ejecutar el proyecto es necesario crear un archivo `.env` en la raíz del proyecto con las credenciales correspondientes.
 
 ```env
 AIRLABS_API_KEY=TU_API_KEY
 OPENWEATHER_API_KEY=TU_API_KEY
 ```
+
 ---
 
 # Archivo de salida
 
-Los datos obtenidos se almacenan automáticamente dentro de la carpeta `data` en formato CSV.
+Los datos recolectados se almacenan automáticamente dentro de la carpeta `data` en formato CSV.
 
 ```text
 data/vuelos_clima_TIMESTAMP.csv
 ```
 
-Cada archivo generado contiene la información recopilada durante la ejecución del sistema.
+Cada archivo contiene información consolidada de vuelos y condiciones climáticas asociadas.
 
 ---
+
+# Procesamiento paralelo con MPI
+
+El proyecto incorpora procesamiento distribuido mediante `MPI` utilizando la librería `mpi4py`. El objetivo es dividir el dataset entre múltiples procesos para acelerar el análisis estadístico y generación de métricas utilizadas por el dashboard.
+
+El archivo `data_engine_mpi.py` implementa un flujo distribuido compuesto por:
+
+- Distribución de datos mediante `scatter`
+- Procesamiento paralelo por nodo
+- Recolección de resultados con `gather`
+- Reducción y consolidación final en el nodo maestro
+
+---
+
+## Flujo de procesamiento MPI
+
+Cada proceso recibe un fragmento del dataset y calcula métricas locales relacionadas con retrasos de vuelos:
+
+- retraso promedio,
+- retraso máximo,
+- vuelos retrasados por aeropuerto.
+
+Posteriormente, el nodo maestro unifica los resultados parciales y genera un archivo cacheado optimizado para visualización.
+
+---
+
+## Archivo generado por MPI
+
+```text
+data/mpi_cache_retrasos.csv
+```
+
+Este archivo almacena estadísticas resumidas utilizadas posteriormente por el dashboard interactivo.
+
+---
+
+## Ejecución MPI
+
+El procesamiento distribuido puede ejecutarse utilizando múltiples procesos:
+
+```bash
+mpiexec -n 4 python data_engine_mpi.py
+```
+
+Donde:
+
+- `-n 4` indica el número de procesos paralelos.
+- Cada nodo procesa una parte distinta del dataset.
+
+---
+
 # Modelo de Predicción de Retrasos de Vuelos con CatBoost
 
-El proyecto incorpora un modelo de Machine Learning orientado a la predicción de retrasos de vuelos utilizando `CatBoostClassifier`. El objetivo principal es identificar si un vuelo presentará retrasos significativos considerando tanto variables operacionales como factores meteorológicos.
+El proyecto incorpora un modelo de Machine Learning orientado a la predicción de retrasos de vuelos utilizando `CatBoostClassifier`.
 
-El modelo fue construido a partir del dataset generado mediante el sistema de recolección asíncrona de datos, integrando información de vuelos y condiciones climáticas en tiempo real.
+El objetivo principal es identificar vuelos con probabilidad alta de retraso considerando variables operacionales y meteorológicas.
 
 ---
 
 # Procesamiento y preparación de datos
 
-El sistema realiza una etapa de preprocesamiento donde las variables temporales son convertidas a formatos de fecha y hora para facilitar la ingeniería de características.
+El sistema realiza una etapa de preprocesamiento donde las variables temporales son convertidas a formatos adecuados para análisis.
 
-Posteriormente, la variable objetivo `delayed` es transformada a formato numérico y utilizada para generar una nueva variable binaria denominada `retrasado`, la cual identifica vuelos con retrasos mayores a 10 minutos.
+La variable objetivo `delayed` es transformada a formato numérico y utilizada para construir una nueva variable binaria denominada `retrasado`, la cual identifica vuelos con retrasos mayores a 10 minutos.
 
-Para optimizar el rendimiento computacional, varias operaciones fueron implementadas utilizando `Numba` mediante decoradores `@njit(parallel=True)` y procesamiento paralelo con `prange`.
+Para optimizar el rendimiento computacional se implementaron funciones paralelizadas utilizando `Numba`.
+
+```python
+@njit(parallel=True)
+```
 
 ---
 
 # Ingeniería de características
 
-El modelo incorpora múltiples variables derivadas para mejorar la capacidad predictiva. Entre las principales transformaciones realizadas se encuentran:
+El modelo incorpora múltiples variables derivadas:
 
-- Extracción de hora del vuelo
+- Hora del vuelo
 - Día de la semana
-- Construcción de rutas aeropuerto-origen/destino
-- Identificación de horas pico
-- Identificación de vuelos nocturnos
-- Cálculo de variación de temperatura
-- Detección de clima severo
-- Identificación de humedad alta
+- Ruta origen-destino
+- Hora pico
+- Vuelo nocturno
+- Delta de temperatura
+- Clima severo
+- Humedad alta
 
-Estas variables permiten representar de mejor manera patrones operacionales y condiciones ambientales asociadas a retrasos.
+Estas variables permiten representar mejor patrones operacionales y ambientales asociados a retrasos.
 
 ---
 
@@ -126,6 +187,8 @@ Estas variables permiten representar de mejor manera patrones operacionales y co
 - `dep_iata`
 - `arr_iata`
 - `ruta`
+
+---
 
 ## Variables numéricas y climáticas
 
@@ -150,9 +213,7 @@ Estas variables permiten representar de mejor manera patrones operacionales y co
 
 # Modelo utilizado
 
-El sistema utiliza `CatBoostClassifier`, un algoritmo basado en gradient boosting especializado en el manejo eficiente de variables categóricas.
-
-El modelo fue configurado utilizando:
+El sistema utiliza `CatBoostClassifier`, algoritmo basado en Gradient Boosting especializado en variables categóricas.
 
 ```python
 CatBoostClassifier(
@@ -168,9 +229,9 @@ CatBoostClassifier(
 
 # Optimización de hiperparámetros
 
-Para mejorar el desempeño del modelo se implementó una búsqueda aleatoria de hiperparámetros mediante `RandomizedSearchCV` utilizando validación cruzada estratificada (`StratifiedKFold`).
+Se implementa optimización mediante `RandomizedSearchCV` y validación cruzada estratificada utilizando `StratifiedKFold`.
 
-La optimización considera parámetros como:
+La búsqueda considera parámetros relacionados con:
 
 - número de iteraciones,
 - profundidad de árboles,
@@ -179,13 +240,11 @@ La optimización considera parámetros como:
 - bagging,
 - random strength.
 
-Esto permite encontrar configuraciones más robustas para el problema de clasificación.
-
 ---
 
 # Evaluación del modelo
 
-El desempeño del modelo es evaluado utilizando distintas métricas de clasificación:
+El modelo es evaluado utilizando distintas métricas de clasificación:
 
 - Accuracy
 - Precision
@@ -193,27 +252,31 @@ El desempeño del modelo es evaluado utilizando distintas métricas de clasifica
 - F1 Score
 - ROC AUC
 
-Además, se genera un reporte completo de clasificación y una matriz de confusión para analizar el comportamiento del modelo en cada clase.
+También se generan:
+
+- matriz de confusión,
+- reporte de clasificación,
+- análisis de desempeño por clase.
 
 ---
 
 # Interpretabilidad del modelo
 
-Para analizar la importancia de las variables se utilizan dos enfoques:
+Para interpretar el comportamiento del modelo se utilizan:
 
 ## Importancia de variables
 
-El modelo calcula automáticamente la relevancia de cada característica utilizada durante el entrenamiento.
+El modelo calcula automáticamente la relevancia de cada característica.
 
 ## SHAP Values
 
-Se implementa `SHAP` para interpretar el impacto individual de cada variable sobre las predicciones del modelo, permitiendo comprender mejor el comportamiento interno del algoritmo.
+Se implementa `SHAP` para analizar el impacto individual de las variables sobre las predicciones realizadas.
 
 ---
 
-# Procesamiento paralelo
+# Procesamiento paralelo con Numba
 
-El proyecto utiliza paralelización mediante `Numba` para acelerar operaciones de ingeniería de características y procesamiento de datos.
+El proyecto utiliza `Numba` para acelerar operaciones de ingeniería de características y procesamiento numérico.
 
 Funciones implementadas con:
 
@@ -224,27 +287,27 @@ Funciones implementadas con:
 permiten optimizar:
 
 - creación de variables binarias,
-- cálculo de clima severo,
-- detección de horas pico,
+- detección de clima severo,
+- identificación de horas pico,
 - cálculo de métricas derivadas.
 
 ---
 
 # Visualización de resultados
 
-El sistema genera distintas visualizaciones para facilitar el análisis del modelo:
+El sistema genera distintas visualizaciones para facilitar el análisis:
 
 - Matriz de confusión
 - Gráfica de importancia de variables
 - SHAP Summary Plot
 
-Estas visualizaciones permiten evaluar tanto el rendimiento como la interpretabilidad del sistema predictivo.
+Estas visualizaciones permiten evaluar rendimiento e interpretabilidad del modelo.
 
 ---
 
 # Almacenamiento del modelo
 
-El modelo entrenado se almacena automáticamente dentro de la carpeta `models` utilizando el formato `.cbm` de CatBoost.
+El modelo entrenado se almacena automáticamente dentro de la carpeta `models`.
 
 ```python
 modelo.save_model(
@@ -253,87 +316,130 @@ modelo.save_model(
 ```
 
 ---
+
 # Dashboard Interactivo
 
-El proyecto incluye un dashboard interactivo desarrollado con las librerías Dash, Plotly y Bootstrap para visualizar métricas, analizar información histórica y realizar predicciones de retrasos en tiempo real.
+El proyecto incluye un dashboard interactivo desarrollado con Dash, Plotly y Bootstrap para visualizar métricas, analizar información histórica y realizar simulaciones de retrasos en tiempo real.
 
-El sistema carga automáticamente el modelo entrenado de CatBoost y permite al usuario interactuar con los datos mediante una interfaz moderna enfocada en análisis operacional de vuelos.
-
----
-
-## Funcionalidades principales
-
-- Visualización de métricas generales del dataset:
-  - Retraso promedio.
-  - Retraso máximo.
-  - Total de vuelos analizados.
-  - Número de aeropuertos procesados.
-
-- Análisis visual de aeropuertos con mayor retraso promedio utilizando gráficas interactivas de barras.
-
-- Visualización de importancia de variables obtenidas desde el modelo entrenado:
-  - Ruta del vuelo.
-  - Aeropuerto de salida y llegada.
-  - Variables meteorológicas.
-  - Variables temporales y operacionales.
-
-- Simulador de predicción de retrasos:
-  - Selección de aeropuerto de origen y destino.
-  - Configuración manual de variables climáticas.
-  - Simulación de horarios y días de operación.
-  - Predicción de probabilidad de retraso en tiempo real.
-
-- Indicadores visuales dinámicos:
-  - Gauge chart de probabilidad de retraso.
-  - Alertas de riesgo operacional.
-  - Indicadores de vuelos en tiempo o con posible retraso.
-
-- Dashboard completamente estilizado mediante CSS personalizado:
-  - Tema oscuro moderno.
-  - Componentes responsivos.
-  - Visualizaciones optimizadas para monitoreo y análisis.
+El sistema carga automáticamente el modelo entrenado y permite interacción dinámica mediante una interfaz moderna enfocada en análisis operacional.
 
 ---
 
-## Variables utilizadas por el simulador
+# Funcionalidades principales
 
-El dashboard utiliza las mismas variables procesadas durante el entrenamiento del modelo:
-
-### Información del vuelo
-
-- Aeropuerto de origen.
-- Aeropuerto de destino.
-- Ruta.
-- Hora del vuelo.
-- Día de la semana.
-
-### Variables meteorológicas
-
-- Temperatura.
-- Humedad.
-- Velocidad del viento.
-- Visibilidad.
-- Lluvia.
-- Nubosidad.
-- Presión atmosférica.
-
-### Variables derivadas
-
-- Hora pico.
-- Vuelo nocturno.
-- Clima severo.
-- Humedad alta.
-- Delta de temperatura.
+- Visualización de métricas generales del dataset.
+- Retraso promedio y máximo.
+- Número de vuelos analizados.
+- Número de aeropuertos procesados.
+- Visualización de aeropuertos con mayor retraso promedio.
+- Importancia de variables del modelo.
+- Simulador de predicción de retrasos.
+- Indicadores visuales dinámicos.
+- Gauge chart de probabilidad de retraso.
+- Alertas de riesgo operacional.
+- Dashboard responsivo con CSS personalizado.
 
 ---
 
-## Visualización y análisis
+# Variables utilizadas por el simulador
+
+## Información del vuelo
+
+- Aeropuerto de origen
+- Aeropuerto de destino
+- Ruta
+- Hora del vuelo
+- Día de la semana
+
+---
+
+## Variables meteorológicas
+
+- Temperatura
+- Humedad
+- Velocidad del viento
+- Visibilidad
+- Lluvia
+- Nubosidad
+- Presión atmosférica
+
+---
+
+## Variables derivadas
+
+- Hora pico
+- Vuelo nocturno
+- Clima severo
+- Humedad alta
+- Delta de temperatura
+
+---
+
+# Visualización y análisis
 
 El dashboard integra gráficos avanzados utilizando Plotly para representar:
 
-- Importancia de características del modelo.
-- Distribución de retrasos por aeropuerto.
-- Indicadores de desempeño del modelo.
-- Probabilidad estimada de retraso.
+- Importancia de características
+- Distribución de retrasos por aeropuerto
+- Indicadores de desempeño
+- Probabilidad estimada de retraso
+
+---
+
+# Estructura del proyecto
+
+```text
+.
+├── appdash.py
+├── main.py
+├── modelotarea1.py
+├── data_engine_mpi.py
+├── README.md
+├── data/
+├── models/
+└── catboost_info/
+```
+
+---
+
+# Ejecución del proyecto
+
+## Instalar dependencias
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Ejecutar recolección de datos
+
+```bash
+python main.py
+```
+
+---
+
+## Ejecutar entrenamiento del modelo
+
+```bash
+python modelotarea1.py
+```
+
+---
+
+## Ejecutar procesamiento paralelo MPI
+
+```bash
+mpiexec -n 4 python data_engine_mpi.py
+```
+
+---
+
+## Ejecutar dashboard
+
+```bash
+python appdash.py
+```
 
 ---
