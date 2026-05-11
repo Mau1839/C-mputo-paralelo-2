@@ -7,42 +7,308 @@ import plotly.graph_objects as go
 import numpy as np
 from catboost import CatBoostClassifier
 
-# ── Dropdown CSS fix (DARKLY puts white text on white background) ────────────
-DROPDOWN_CSS = """
-body .Select-value-label,
-body .Select-input > input         { color: #212529 !important; }
-body .Select-placeholder           { color: #6c757d !important; }
-body .Select-menu-outer,
-body .Select-option                { background:#fff !important; color:#212529 !important; }
-body .Select-option.is-focused     { background:#e9ecef !important; }
-body .Select-option.is-selected    { background:#0d6efd !important; color:#fff !important; }
-body .dash-dropdown .Select__single-value,
-body .dash-dropdown .Select__input-container { color:#212529 !important; }
-body .dash-dropdown .Select__placeholder     { color:#6c757d !important; }
-body .dash-dropdown .Select__menu            { background:#fff !important; }
-body .dash-dropdown .Select__option          { color:#212529 !important; }
-body .dash-dropdown .Select__option--is-focused   { background:#e9ecef !important; }
-body .dash-dropdown .Select__option--is-selected  { background:#0d6efd !important; color:#fff !important; }
+# Encapsulamiento de estilos
+
+CUSTOM_CSS = """
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+    background: #0A0E1A !important;
+    font-family: 'DM Sans', sans-serif !important;
+    color: #F1F5F9 !important;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #0A0E1A; }
+::-webkit-scrollbar-thumb { background: #1F2D45; border-radius: 3px; }
+
+/* ── Sidebar ── */
+.sidebar-card {
+    background: #111827;
+    border: 1px solid #1F2D45;
+    border-radius: 16px;
+    padding: 24px 20px;
+    height: 100%;
+}
+
+/* ── Metric cards ── */
+.metric-card {
+    background: #111827;
+    border: 1px solid #1F2D45;
+    border-radius: 12px;
+    padding: 20px 22px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+}
+.metric-card:hover { border-color: #3B82F6; }
+.metric-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #3B82F6, #06B6D4);
+    border-radius: 12px 12px 0 0;
+}
+.metric-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #64748B;
+    margin-bottom: 8px;
+}
+.metric-value {
+    font-size: 26px;
+    font-weight: 700;
+    color: #F1F5F9;
+    font-family: 'DM Mono', monospace;
+    letter-spacing: -.02em;
+}
+
+/* ── Tabs ── */
+.nav-tabs { border-bottom: 1px solid #1F2D45 !important; }
+.nav-tabs .nav-link {
+    color: #64748B !important;
+    background: transparent !important;
+    border: none !important;
+    border-bottom: 2px solid transparent !important;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .04em;
+    padding: 12px 20px !important;
+    transition: color .2s, border-color .2s;
+}
+.nav-tabs .nav-link:hover { color: #94A3B8 !important; }
+.nav-tabs .nav-link.active {
+    color: #3B82F6 !important;
+    border-bottom: 2px solid #3B82F6 !important;
+}
+.tab-content { padding-top: 24px; }
+
+/* ── Main content card ── */
+.main-card {
+    background: #111827;
+    border: 1px solid #1F2D45;
+    border-radius: 16px;
+    padding: 28px;
+}
+
+/* ── Divider ── */
+.divider { border-color: #1F2D45 !important; margin: 20px 0; }
+
+/* ── Buttons ── */
+.btn-predict {
+    background: linear-gradient(135deg, #3B82F6, #06B6D4) !important;
+    border: none !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    font-size: 14px !important;
+    letter-spacing: .04em !important;
+    padding: 14px !important;
+    color: #fff !important;
+    transition: opacity .2s, transform .1s !important;
+}
+.btn-predict:hover { opacity: .9 !important; transform: translateY(-1px) !important; }
+.btn-predict:active { transform: translateY(0) !important; }
+
+/* ── Form labels ── */
+.form-label-pro {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: #64748B;
+    margin-bottom: 8px;
+    display: block;
+}
+
+/* ── Inputs ── */
+.pro-input {
+    background: #0A0E1A !important;
+    border: 1px solid #1F2D45 !important;
+    border-radius: 8px !important;
+    color: #F1F5F9 !important;
+    font-family: 'DM Mono', monospace !important;
+    font-size: 14px !important;
+    padding: 10px 14px !important;
+    transition: border-color .2s;
+}
+.pro-input:focus {
+    border-color: #3B82F6 !important;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important;
+    outline: none !important;
+}
+.form-control { background: #0A0E1A !important; border: 1px solid #1F2D45 !important;
+    color: #F1F5F9 !important; border-radius: 8px !important; }
+.form-control:focus { border-color: #3B82F6 !important;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important; }
+
+/* ── Dropdown overrides ── */
+.Select-control { background: #0A0E1A !important; border: 1px solid #1F2D45 !important;
+    border-radius: 8px !important; }
+.Select-control:hover { border-color: #3B82F6 !important; }
+.Select--is-focused .Select-control { border-color: #3B82F6 !important;
+    box-shadow: 0 0 0 3px rgba(59,130,246,.15) !important; }
+.Select-value-label, .Select-input > input { color: #F1F5F9 !important; }
+.Select-placeholder { color: #64748B !important; }
+.Select-menu-outer { background: #1C2333 !important; border: 1px solid #1F2D45 !important;
+    border-radius: 8px !important; margin-top: 4px !important; }
+.Select-option { background: transparent !important; color: #94A3B8 !important;
+    font-size: 13px; padding: 10px 14px !important; }
+.Select-option.is-focused { background: #1F2D45 !important; color: #F1F5F9 !important; }
+.Select-option.is-selected { background: rgba(59,130,246,.2) !important;
+    color: #3B82F6 !important; }
+.Select-arrow { border-color: #64748B transparent transparent !important; }
+
+/* Dash v2 react-select overrides */
+.dash-dropdown .Select__control {
+    background: #0A0E1A !important; border: 1px solid #1F2D45 !important; border-radius: 8px !important; }
+.dash-dropdown .Select__single-value,
+.dash-dropdown .Select__input-container { color: #F1F5F9 !important; }
+.dash-dropdown .Select__placeholder { color: #64748B !important; }
+.dash-dropdown .Select__menu { background: #1C2333 !important;
+    border: 1px solid #1F2D45 !important; border-radius: 8px !important; }
+.dash-dropdown .Select__option { color: #94A3B8 !important; }
+.dash-dropdown .Select__option--is-focused { background: #1F2D45 !important; color: #F1F5F9 !important; }
+.dash-dropdown .Select__option--is-selected { background: rgba(59,130,246,.2) !important;
+    color: #3B82F6 !important; }
+
+/* ── Slider ── */
+.rc-slider-rail { background: #1F2D45 !important; }
+.rc-slider-track { background: linear-gradient(90deg,#3B82F6,#06B6D4) !important; }
+.rc-slider-handle { border-color: #3B82F6 !important; background: #3B82F6 !important; }
+.rc-slider-mark-text { color: #64748B !important; font-size: 11px !important; }
+
+/* ── Alert overrides ── */
+.alert-info { background: rgba(6,182,212,.1) !important; border: 1px solid rgba(6,182,212,.25) !important;
+    color: #94A3B8 !important; border-radius: 10px !important; }
+.alert-warning { background: rgba(245,158,11,.1) !important; border: 1px solid rgba(245,158,11,.3) !important;
+    color: #F59E0B !important; border-radius: 10px !important; font-family: 'DM Mono', monospace;
+    font-size: 13px; text-align: center; letter-spacing: .04em; }
+.alert-danger { background: rgba(239,68,68,.1) !important; border: 1px solid rgba(239,68,68,.25) !important;
+    color: #F1F5F9 !important; border-radius: 10px !important; }
+.alert-success { background: rgba(16,185,129,.1) !important; border: 1px solid rgba(16,185,129,.25) !important;
+    color: #F1F5F9 !important; border-radius: 10px !important; }
+
+/* ── Section header ── */
+.section-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: #3B82F6;
+    margin-bottom: 16px;
+}
+
+/* ── Status chip ── */
+.status-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(16,185,129,.12);
+    border: 1px solid rgba(16,185,129,.3);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #10B981;
+    letter-spacing: .06em;
+}
+.status-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #10B981;
+    animation: pulse 2s infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: .3; }
+}
+
+/* ── Header ── */
+.app-header {
+    border-bottom: 1px solid #1F2D45;
+    padding-bottom: 20px;
+    margin-bottom: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.app-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #F1F5F9;
+    letter-spacing: -.02em;
+    margin: 0;
+}
+.app-subtitle {
+    font-size: 13px;
+    color: #64748B;
+    margin: 4px 0 0 0;
+}
+
+/* ── Sidebar stat row ── */
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid #1F2D45;
+}
+.stat-row:last-child { border-bottom: none; }
+.stat-key { font-size: 12px; color: #64748B; font-weight: 500; }
+.stat-val { font-size: 13px; color: #F1F5F9; font-weight: 600; font-family: 'DM Mono', monospace; }
+
+/* ── Graph containers ── */
+.graph-card {
+    background: #0A0E1A;
+    border: 1px solid #1F2D45;
+    border-radius: 12px;
+    padding: 4px;
+}
 """
 
-# ── App init ────────────────────────────────────────────────────────────────
+BASE_LAYOUT = dict(
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font=dict(family="DM Sans", color="#94A3B8", size=12),
+    xaxis=dict(gridcolor="#1F2D45", zerolinecolor="#1F2D45", tickfont=dict(color="#64748B", size=11)),
+    yaxis=dict(gridcolor="#1F2D45", zerolinecolor="#1F2D45", tickfont=dict(color="#64748B", size=11)),
+    margin=dict(t=56, b=24, l=24, r=24),
+    legend=dict(bgcolor="rgba(0,0,0,0)", font=dict(color="#94A3B8")),
+    coloraxis=dict(colorbar=dict(tickfont=dict(color="#64748B"))),
+)
+
+def pro_title(text):
+    return dict(text=text, font=dict(color="#F1F5F9", size=14, family="DM Sans"), x=0.02, xanchor="left")
+
+CHART_COLORS = ["#3B82F6", "#06B6D4", "#8B5CF6", "#10B981", "#F59E0B", "#EF4444"]
+BLUE_CYAN = ["#1E3A5F", "#1E4976", "#1A5FAD", "#3B82F6", "#60A5FA", "#06B6D4", "#67E8F9"]
+
+
+# Arranque de la App
 app = dash.Dash(
     __name__,
-    external_stylesheets=[dbc.themes.DARKLY],
-    title="Predicción de Retrasos Aéreos",
+    external_stylesheets=[dbc.themes.BOOTSTRAP],  
+    title="Flight Intelligence · AeroBI",
+    meta_tags=[{"name": "viewport", "content": "width=device-width, initial-scale=1"}],
 )
 server = app.server
 
+_orig = app.index_string
+app.index_string = _orig.replace("</head>", f"<style>{CUSTOM_CSS}</style></head>")
 
-_orig_index = app.index_string
-app.index_string = _orig_index.replace(
-    "</head>", f"<style>{DROPDOWN_CSS}</style></head>"
-)
 
+# Carga del modelo
 def cargar_modelo():
-    modelo = CatBoostClassifier()
-    modelo.load_model("models/modelotarea1.cbm")
-    return modelo
+    m = CatBoostClassifier()
+    m.load_model("models/modelotarea1.cbm")
+    return m
 
 def cargar_datos():
     return pd.read_csv("data/vuelos_clima_1778363496.csv")
@@ -57,17 +323,15 @@ FEATURES = [
     "weather_clouds", "hora", "dia_semana", "hora_pico",
     "vuelo_nocturno", "clima_severo", "humedad_alta",
 ]
+DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
 
-DIAS = ["Lun", "Mar", "Mie", "Jue", "Vie", "Sáb", "Dom"]
 
-def metric_card(label, value):
-    return dbc.Card(
-        dbc.CardBody([
-            html.P(label, className="text-muted mb-1", style={"fontSize": "0.8rem"}),
-            html.H4(value, className="mb-0 text-white fw-bold"),
-        ]),
-        className="bg-dark border-secondary text-center shadow",
-    )
+# Estructura del Card
+def metric_card(label, value, icon=""):
+    return html.Div([
+        html.Div(f"{icon}  {label}".strip(), className="metric-label"),
+        html.Div(value, className="metric-value"),
+    ], className="metric-card")
 
 retrasos_apt = (
     df[df["delayed"] > 0]
@@ -79,37 +343,24 @@ retrasos_apt = (
 )
 retrasos_apt.columns = ["Aeropuerto", "Retraso Promedio (min)"]
 
-fig_airports = px.bar(
-    retrasos_apt,
-    x="Aeropuerto",
-    y="Retraso Promedio (min)",
-    color="Retraso Promedio (min)",
-    color_continuous_scale="Viridis",
-    title="Top 15 Aeropuertos con Mayor Retraso Promedio",
-    template="plotly_dark",
-)
+fig_airports = go.Figure(go.Bar(
+    x=retrasos_apt["Aeropuerto"],
+    y=retrasos_apt["Retraso Promedio (min)"],
+    marker=dict(
+        color=retrasos_apt["Retraso Promedio (min)"],
+        colorscale=BLUE_CYAN,
+        line=dict(width=0),
+    ),
+    hovertemplate="<b>%{x}</b><br>Retraso Prom: %{y:.1f} min<extra></extra>",
+))
 fig_airports.update_layout(
-    coloraxis_showscale=False,
-    margin=dict(t=50, b=20, l=20, r=20),
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-)
-
-tab_datos = dbc.Tab(
-    label="Datos",
-    tab_id="tab-datos",
-    children=[
-        dbc.Row([
-            dbc.Col(metric_card("Promedio de Retraso", f"{df['delayed'].mean():.2f} min"), width=6),
-            dbc.Col(metric_card("Retraso Máximo", f"{df['delayed'].max():.0f} min"), width=6),
-        ], className="mb-4 mt-3"),
-        html.Hr(className="border-secondary"),
-        dcc.Graph(figure=fig_airports, config={"displayModeBar": False}),
-    ],
+    **BASE_LAYOUT,
+    title=pro_title("Top 15 Aeropuertos · Retraso Promedio"),
+    bargap=0.35,
 )
 
 
-# ── Tab 2 – Rendimiento ──────────────────────────────────────────────────────
+# Cargar Caracteristicas del Modelo
 importancias = modelo.get_feature_importance()
 feat_imp = (
     pd.DataFrame({"Feature": FEATURES, "Importance": importancias})
@@ -117,172 +368,236 @@ feat_imp = (
     .tail(10)
 )
 
-fig_imp = px.bar(
-    feat_imp,
-    x="Importance",
-    y="Feature",
+fig_imp = go.Figure(go.Bar(
+    x=feat_imp["Importance"],
+    y=feat_imp["Feature"],
     orientation="h",
-    color="Importance",
-    color_continuous_scale="Viridis",
-    title="Top 10 Variables más Influyentes",
-    template="plotly_dark",
-)
+    marker=dict(
+        color=feat_imp["Importance"],
+        colorscale=BLUE_CYAN,
+        line=dict(width=0),
+    ),
+    hovertemplate="<b>%{y}</b><br>Importancia: %{x:.2f}<extra></extra>",
+))
 fig_imp.update_layout(
-    coloraxis_showscale=False,
-    margin=dict(t=50, b=20, l=20, r=20),
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
+    **BASE_LAYOUT,
+    title=pro_title("Importancia de Variables · Top 10"),
+    xaxis_title="",
     yaxis_title="",
+    bargap=0.35,
 )
 
-tab_rendimiento = dbc.Tab(
-    label="Rendimiento del Modelo",
-    tab_id="tab-rendimiento",
+
+# Slide 1
+tab_datos = dbc.Tab(
+    label="Exploración",
+    tab_id="tab-datos",
     children=[
         dbc.Row([
-            dbc.Col(metric_card("Accuracy",  "99.85%"), width=3),
-            dbc.Col(metric_card("Precision", "99.21%"), width=3),
-            dbc.Col(metric_card("Recall",    "97.35%"), width=3),
-            dbc.Col(metric_card("F1-Score",  "0.98"),   width=3),
-        ], className="mb-4 mt-3"),
-        html.Hr(className="border-secondary"),
-        dbc.Row([
-            dbc.Col(dcc.Graph(figure=fig_imp, config={"displayModeBar": False}), width=7),
-            dbc.Col([
-                dbc.Alert([
-                    html.Strong("¿Qué significan estos datos?"),
-                    html.Ul([
-                        html.Li("Variables Categóricas: La ruta y el aeropuerto de origen son los predictores más fuertes."),
-                        html.Li("Clima: La visibilidad y velocidad del viento impactan en el umbral de seguridad."),
-                        html.Li("Temporalidad: Las 'Horas Pico' ayudan al modelo a identificar saturación de pista."),
-                    ], className="mt-2 mb-0"),
-                ], color="info"),
-                dbc.Alert("Umbral de Decisión: 0.30", color="warning", className="mt-3"),
-            ], width=5, className="d-flex flex-column justify-content-center"),
-        ]),
+            dbc.Col(metric_card("Retraso Promedio", f"{df['delayed'].mean():.1f} min"), md=3),
+            dbc.Col(metric_card("Retraso Máximo",   f"{int(df['delayed'].max())} min"),  md=3),
+            dbc.Col(metric_card("Vuelos Analizados", f"{len(df):,}"), md=3),
+            dbc.Col(metric_card("Aeropuertos", str(df['dep_iata'].nunique())), md=3),
+        ], className="g-3 mb-4"),
+        html.Hr(className="divider"),
+        html.Div(
+            dcc.Graph(figure=fig_airports, config={"displayModeBar": False},
+                      style={"height": "360px"}),
+            className="graph-card",
+        ),
     ],
 )
 
 
-# ── Tab 3 – Predicción ───────────────────────────────────────────────────────
+# Slide 2
+tab_rendimiento = dbc.Tab(
+    label="Rendimiento",
+    tab_id="tab-rendimiento",
+    children=[
+        dbc.Row([
+            dbc.Col(metric_card("Accuracy",  "99.85%"), md=3),
+            dbc.Col(metric_card("Precision", "99.21%"), md=3),
+            dbc.Col(metric_card("Recall",    "97.35%"), md=3),
+            dbc.Col(metric_card("F1-Score",  "0.9827"),  md=3),
+        ], className="g-3 mb-4"),
+        html.Hr(className="divider"),
+        dbc.Row([
+            dbc.Col(
+                html.Div(
+                    dcc.Graph(figure=fig_imp, config={"displayModeBar": False},
+                              style={"height": "340px"}),
+                    className="graph-card",
+                ),
+                md=8,
+            ),
+            dbc.Col([
+                html.Div("Interpretación", className="section-title"),
+                html.Div([
+                    html.Div([
+                        html.Span("Ruta & Aeropuerto", style={"color": "#3B82F6", "fontWeight": "600", "fontSize": "13px"}),
+                        html.P("Variables categóricas con mayor poder predictivo. Las rutas históricamente congestionadas concentran la mayor parte del riesgo.", style={"fontSize": "12px", "color": "#64748B", "marginTop": "4px"}),
+                    ], style={"marginBottom": "16px", "paddingBottom": "16px", "borderBottom": "1px solid #1F2D45"}),
+                    html.Div([
+                        html.Span("Visibilidad & Viento", style={"color": "#06B6D4", "fontWeight": "600", "fontSize": "13px"}),
+                        html.P("Indicadores climáticos clave vinculados a restricciones operativas de seguridad.", style={"fontSize": "12px", "color": "#64748B", "marginTop": "4px"}),
+                    ], style={"marginBottom": "16px", "paddingBottom": "16px", "borderBottom": "1px solid #1F2D45"}),
+                    html.Div([
+                        html.Span("Horas Pico", style={"color": "#8B5CF6", "fontWeight": "600", "fontSize": "13px"}),
+                        html.P("Saturación de pistas en ventanas de máxima demanda: 7–9h y 17–19h.", style={"fontSize": "12px", "color": "#64748B", "marginTop": "4px"}),
+                    ]),
+                ], style={"background": "#0A0E1A", "border": "1px solid #1F2D45", "borderRadius": "12px", "padding": "20px", "marginBottom": "16px"}),
+                html.Div([
+                    html.Div("Umbral de Decisión", style={"fontSize": "11px", "color": "#64748B", "fontWeight": "600", "letterSpacing": ".08em", "textTransform": "uppercase"}),
+                    html.Div("0.30", style={"fontSize": "32px", "fontWeight": "700", "color": "#F59E0B", "fontFamily": "'DM Mono', monospace"}),
+                    html.Div("Optimizado para maximizar Recall", style={"fontSize": "11px", "color": "#64748B"}),
+                ], style={"background": "rgba(245,158,11,.08)", "border": "1px solid rgba(245,158,11,.25)", "borderRadius": "12px", "padding": "20px", "textAlign": "center"}),
+            ], md=4),
+        ], className="g-3"),
+    ],
+)
+
+
+# Slide 3
+def form_group(label, children):
+    return html.Div([
+        html.Label(label, className="form-label-pro"),
+        children,
+    ], style={"marginBottom": "20px"})
+
 tab_prediccion = dbc.Tab(
-    label="Predicción",
+    label="Simulador",
     tab_id="tab-prediccion",
     children=[
-        html.H5("Simulador de Estado de Vuelo", className="mt-3 mb-1"),
-        html.P("Ingresa los detalles para predecir la probabilidad de retraso en tiempo real.",
-               className="text-muted mb-4"),
         dbc.Row([
+            # Detalles del vuelo
             dbc.Col([
-                html.P("Detalles del Vuelo", className="fw-bold mb-3"),
-                dbc.Label("Aeropuerto de Origen"),
-                dcc.Dropdown(
-                    id="origen",
-                    options=[{"label": v, "value": v} for v in sorted(df["dep_iata"].unique())],
-                    value=df["dep_iata"].iloc[0],
-                    className="mb-3",
-                    style={"color": "#212529"},
-                    optionHeight=35,
+                html.Div("Detalles del Vuelo", className="section-title"),
+                form_group("Aeropuerto de Origen",
+                    dcc.Dropdown(
+                        id="origen",
+                        options=[{"label": v, "value": v} for v in sorted(df["dep_iata"].unique())],
+                        value=df["dep_iata"].iloc[0],
+                        style={"color": "#212529"},
+                        optionHeight=35,
+                    )
                 ),
-                dbc.Label("Aeropuerto de Destino"),
-                dcc.Dropdown(
-                    id="destino",
-                    options=[{"label": v, "value": v} for v in sorted(df["arr_iata"].unique())],
-                    value=df["arr_iata"].iloc[0],
-                    className="mb-3",
-                    style={"color": "#212529"},
-                    optionHeight=35,
+                form_group("Aeropuerto de Destino",
+                    dcc.Dropdown(
+                        id="destino",
+                        options=[{"label": v, "value": v} for v in sorted(df["arr_iata"].unique())],
+                        value=df["arr_iata"].iloc[0],
+                        style={"color": "#212529"},
+                        optionHeight=35,
+                    )
                 ),
-                dbc.Label("Día de la semana"),
-                dcc.Slider(
-                    id="dia",
-                    min=0, max=6, step=1, value=0,
-                    marks={i: d for i, d in enumerate(DIAS)},
-                    className="mb-4",
+                form_group("Día de la Semana (0=Lun … 6=Dom)",
+                    dbc.Input(id="dia", type="number", min=0, max=6, step=1, value=0, className="pro-input"),
                 ),
-                dbc.Label("Hora del vuelo (0–23)"),
-                dcc.Slider(
-                    id="hora-vuelo",
-                    min=0, max=23, step=1, value=12,
-                    marks={h: str(h) for h in range(0, 24, 3)},
-                    className="mb-3",
+                form_group("Hora de Salida (0 – 23)",
+                    dbc.Input(id="hora-vuelo", type="number", min=0, max=23, step=1, value=12, className="pro-input"),
                 ),
-            ], width=6),
+            ], md=6),
 
-
+            # Detalles del clima
             dbc.Col([
-                html.P("Condiciones Climáticas", className="fw-bold mb-3"),
-                dbc.Label("Temperatura (°C)"),
-                dbc.Input(id="temp", type="number", value=20, className="mb-3"),
-                dbc.Label("Humedad (%)"),
-                dcc.Slider(
-                    id="humedad",
-                    min=0, max=100, step=1, value=50,
-                    marks={v: f"{v}%" for v in range(0, 101, 25)},
-                    className="mb-4",
+                html.Div("Condiciones Climáticas", className="section-title"),
+                form_group("Temperatura (°C)",
+                    dbc.Input(id="temp", type="number", value=20, className="pro-input"),
                 ),
-                dbc.Label("Velocidad del Viento (km/h)"),
-                dbc.Input(id="viento", type="number", value=10, className="mb-3"),
-                dbc.Label("Visibilidad (metros)"),
-                dbc.Input(id="visibilidad", type="number", value=10000, className="mb-3"),
-            ], width=6),
-        ]),
+                form_group("Humedad Relativa (0 – 100 %)",
+                    dbc.Input(id="humedad", type="number", min=0, max=100, step=1, value=50, className="pro-input"),
+                ),
+                form_group("Velocidad del Viento (km/h)",
+                    dbc.Input(id="viento", type="number", value=10, className="pro-input"),
+                ),
+                form_group("Visibilidad (m)",
+                    dbc.Input(id="visibilidad", type="number", value=10000, className="pro-input"),
+                ),
+            ], md=6),
+        ], className="g-4"),
 
-        html.Hr(className="border-secondary"),
+        html.Hr(className="divider"),
 
         dbc.Button(
-            "Calcular Probabilidad de Retraso",
+            "Calcular Probabilidad de Retraso →",
             id="btn-predecir",
-            color="success",
             size="lg",
-            className="w-100 mb-4",
+            className="w-100 btn-predict mb-4",
         ),
 
-        # Result placeholder
         html.Div(id="resultado-prediccion"),
     ],
 )
 
 
-# ── Sidebar ──────────────────────────────────────────────────────────────────
-sidebar = dbc.Card(
-    dbc.CardBody([
-        html.H6("ℹ️ Información del Dataset", className="text-white fw-bold mb-3"),
-        html.P(f"Vuelos analizados: {len(df):,}", className="text-muted mb-1"),
-        html.P(f"Aeropuertos únicos: {df['dep_iata'].nunique()}", className="text-muted mb-1"),
-        html.Hr(className="border-secondary my-3"),
-        html.Small("Actualización automática cada 5 min", className="text-secondary"),
-    ]),
-    className="bg-dark border-secondary shadow h-100",
-)
+delayed_pct = (df["delayed"] > 0).mean() * 100
+rutas_unicas = df["ruta"].nunique() if "ruta" in df.columns else "—"
 
-app.layout = dbc.Container(
-    fluid=True,
-    className="py-4 px-4",
+sidebar = html.Div([
+    html.Div([
+        html.Div(style={"width": "28px", "height": "28px", "background": "linear-gradient(135deg,#3B82F6,#06B6D4)",
+                        "borderRadius": "8px", "display": "inline-block", "marginBottom": "12px"}),
+        html.Div("AeroBI", style={"fontSize": "16px", "fontWeight": "700", "color": "#F1F5F9", "letterSpacing": "-.01em"}),
+    ]),
+    html.Div("Dataset", className="section-title"),
+    html.Div([
+        html.Div([html.Span("Vuelos", className="stat-key"), html.Span(f"{len(df):,}", className="stat-val")], className="stat-row"),
+        html.Div([html.Span("Aeropuertos", className="stat-key"), html.Span(str(df['dep_iata'].nunique()), className="stat-val")], className="stat-row"),
+        html.Div([html.Span("% con Retraso", className="stat-key"), html.Span(f"{delayed_pct:.1f}%", className="stat-val")], className="stat-row"),
+    ], style={"marginBottom": "24px"}),
+    html.Div("Modelo", className="section-title"),
+    html.Div([
+        html.Div([html.Span("Algoritmo", className="stat-key"), html.Span("CatBoost", className="stat-val")], className="stat-row"),
+        html.Div([html.Span("Umbral", className="stat-key"), html.Span("0.30", className="stat-val")], className="stat-row"),
+        html.Div([html.Span("Versión", className="stat-key"), html.Span("v2.1", className="stat-val")], className="stat-row"),
+    ], style={"marginBottom": "24px"}),
+    html.Div(
+        [html.Div(className="status-dot"), "Sistema Activo"],
+        className="status-chip",
+    ),
+], className="sidebar-card")
+
+
+# Layout de App
+app.layout = html.Div(
+    style={"minHeight": "100vh", "background": "#0A0E1A", "padding": "32px"},
     children=[
         dcc.Interval(id="refresh-interval", interval=5 * 60 * 1000, n_intervals=0),
 
         # Header
-        html.H2("Dashboard de Predicción de Retrasos de Vuelos",
-                className="text-white fw-bold mb-1"),
-        html.P("Este sistema utiliza computación paralela y CatBoost para analizar retrasos en tiempo real.",
-               className="text-muted mb-4"),
+        html.Div([
+            html.Div([
+                html.H1("AeroBI | Dashboard de Predicción de Retrasos", className="app-title"),
+                html.P("Modelo CatBoost · Datos meteorológicos integrados", className="app-subtitle"),
+            ]),
+            html.Div(
+                [html.Div(className="status-dot"), "En vivo"],
+                className="status-chip",
+            ),
+        ], className="app-header"),
+
+        # Body
         dbc.Row([
             # Sidebar
-            dbc.Col(sidebar, width=2),
-            # Main content
+            dbc.Col(sidebar, xs=12, md=2, style={"marginBottom": "16px"}),
+
+            # Main
             dbc.Col(
-                dbc.Tabs(
-                    [tab_datos, tab_rendimiento, tab_prediccion],
-                    id="tabs",
-                    active_tab="tab-datos",
-                ),
-                width=10,
+                html.Div([
+                    dbc.Tabs(
+                        [tab_datos, tab_rendimiento, tab_prediccion],
+                        id="tabs",
+                        active_tab="tab-datos",
+                    ),
+                ], className="main-card"),
+                xs=12, md=10,
             ),
-        ]),
+        ], className="g-4"),
     ],
 )
 
+
+# Funciones CallBacks
 @app.callback(
     Output("resultado-prediccion", "children"),
     Input("btn-predecir", "n_clicks"),
@@ -296,8 +611,7 @@ app.layout = dbc.Container(
     State("visibilidad", "value"),
     prevent_initial_call=True,
 )
-def predecir(n_clicks, origen, destino, dia, hora_vuelo, temp, humedad, viento, visibilidad):
-    # Build input row
+def predecir(n, origen, destino, dia, hora, temp, humedad, viento, vis):
     datos = {
         "dep_iata":           origen,
         "arr_iata":           destino,
@@ -308,71 +622,105 @@ def predecir(n_clicks, origen, destino, dia, hora_vuelo, temp, humedad, viento, 
         "delta_temp":         4.0,
         "weather_pressure":   1013,
         "weather_humidity":   humedad,
-        "weather_visibility": visibilidad,
+        "weather_visibility": vis,
         "weather_wind_speed": viento,
         "weather_rain_1h":    0.0,
         "weather_clouds":     20,
-        "hora":               hora_vuelo,
+        "hora":               hora,
         "dia_semana":         dia,
-        "hora_pico":          1 if hora_vuelo in [7, 8, 17, 18] else 0,
-        "vuelo_nocturno":     1 if hora_vuelo > 20 or hora_vuelo < 6 else 0,
-        "clima_severo":       1 if viento > 40 or visibilidad < 1000 else 0,
+        "hora_pico":          1 if hora in [7, 8, 17, 18] else 0,
+        "vuelo_nocturno":     1 if hora > 20 or hora < 6 else 0,
+        "clima_severo":       1 if viento > 40 or vis < 1000 else 0,
         "humedad_alta":       1 if humedad > 80 else 0,
     }
-    input_df = pd.DataFrame([datos])
-    prob_retraso = modelo.predict_proba(input_df)[0][1]
+    prob = modelo.predict_proba(pd.DataFrame([datos]))[0][1]
+    is_delayed = prob > 0.30
 
-    # Gauge chart
+    gauge_color = "#EF4444" if is_delayed else "#10B981"
     gauge = go.Figure(go.Indicator(
         mode="gauge+number",
-        value=round(prob_retraso * 100, 1),
-        number={"suffix": "%", "font": {"size": 40, "color": "white"}},
+        value=round(prob * 100, 1),
+        number={"suffix": "%", "font": {"size": 44, "color": "#F1F5F9", "family": "DM Mono"}},
         gauge={
-            "axis": {"range": [0, 100], "tickcolor": "white"},
-            "bar":  {"color": "#e74c3c" if prob_retraso > 0.30 else "#2ecc71"},
+            "axis": {"range": [0, 100], "tickcolor": "#1F2D45", "tickfont": {"color": "#64748B", "size": 11}},
+            "bar":  {"color": gauge_color, "thickness": 0.22},
+            "bgcolor": "#0A0E1A",
+            "borderwidth": 0,
             "steps": [
-                {"range": [0,  30], "color": "rgba(46,204,113,0.15)"},
-                {"range": [30, 100], "color": "rgba(231,76,60,0.15)"},
+                {"range": [0,  30], "color": "rgba(16,185,129,.08)"},
+                {"range": [30, 100], "color": "rgba(239,68,68,.08)"},
             ],
             "threshold": {
-                "line":  {"color": "orange", "width": 3},
-                "thickness": 0.75,
+                "line":  {"color": "#F59E0B", "width": 2},
+                "thickness": 0.8,
                 "value": 30,
             },
         },
-        title={"text": "Probabilidad de Retraso", "font": {"color": "white"}},
+        domain={"x": [0.05, 0.95], "y": [0, 1]},
     ))
     gauge.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
-        font_color="white",
         height=260,
-        margin=dict(t=40, b=10, l=30, r=30),
+        margin=dict(t=20, b=10, l=20, r=20),
     )
 
-    # Alert banner
-    if prob_retraso > 0.30:
-        banner = dbc.Alert(
-            [
-                html.Strong(f"ALTA PROBABILIDAD DE RETRASO: {prob_retraso:.1%}"),
-                html.Br(),
-                "Se recomienda monitorear el estado del vuelo. Los factores climáticos o la ruta indican posibles demoras.",
-            ],
-            color="danger",
-        )
+    # Resultados del Modelo
+    if is_delayed:
+        result_content = html.Div([
+            html.Div("⚠ ALERTA DE RETRASO", style={
+                "fontSize": "11px", "fontWeight": "700", "letterSpacing": ".12em",
+                "color": "#EF4444", "marginBottom": "8px",
+            }),
+            html.Div(f"{prob:.1%}", style={
+                "fontSize": "48px", "fontWeight": "700",
+                "color": "#EF4444", "fontFamily": "'DM Mono', monospace",
+                "lineHeight": "1", "marginBottom": "8px",
+            }),
+            html.Div("Probabilidad de retraso estimada", style={"fontSize": "13px", "color": "#64748B", "marginBottom": "16px"}),
+            html.Div(f"Ruta {origen} → {destino}", style={
+                "fontSize": "12px", "color": "#94A3B8", "background": "#1C2333",
+                "padding": "8px 14px", "borderRadius": "8px",
+                "fontFamily": "'DM Mono', monospace", "marginBottom": "12px",
+            }),
+            html.P("Se recomienda monitorear activamente el estado del vuelo. Las condiciones actuales de ruta o clima elevan el riesgo operativo por encima del umbral de decisión.",
+                   style={"fontSize": "13px", "color": "#94A3B8", "lineHeight": "1.6"}),
+        ], style={
+            "background": "rgba(239,68,68,.07)", "border": "1px solid rgba(239,68,68,.25)",
+            "borderRadius": "14px", "padding": "28px", "height": "100%",
+        })
     else:
-        banner = dbc.Alert(
-            [
-                html.Strong(f"✅  VUELO A TIEMPO — Probabilidad de retraso: {prob_retraso:.1%}"),
-                html.Br(),
-                "Las condiciones actuales son favorables para una salida puntual.",
-            ],
-            color="success",
-        )
+        result_content = html.Div([
+            html.Div("✓ VUELO EN TIEMPO", style={
+                "fontSize": "11px", "fontWeight": "700", "letterSpacing": ".12em",
+                "color": "#10B981", "marginBottom": "8px",
+            }),
+            html.Div(f"{prob:.1%}", style={
+                "fontSize": "48px", "fontWeight": "700",
+                "color": "#10B981", "fontFamily": "'DM Mono', monospace",
+                "lineHeight": "1", "marginBottom": "8px",
+            }),
+            html.Div("Probabilidad de retraso estimada", style={"fontSize": "13px", "color": "#64748B", "marginBottom": "16px"}),
+            html.Div(f"Ruta {origen} → {destino}", style={
+                "fontSize": "12px", "color": "#94A3B8", "background": "#1C2333",
+                "padding": "8px 14px", "borderRadius": "8px",
+                "fontFamily": "'DM Mono', monospace", "marginBottom": "12px",
+            }),
+            html.P("Las condiciones actuales son favorables para una salida puntual. El modelo no detecta factores de riesgo significativos en esta operación.",
+                   style={"fontSize": "13px", "color": "#94A3B8", "lineHeight": "1.6"}),
+        ], style={
+            "background": "rgba(16,185,129,.07)", "border": "1px solid rgba(16,185,129,.25)",
+            "borderRadius": "14px", "padding": "28px", "height": "100%",
+        })
 
     return dbc.Row([
-        dbc.Col(dcc.Graph(figure=gauge, config={"displayModeBar": False}), width=5),
-        dbc.Col(banner, width=7, className="d-flex align-items-center"),
-    ])
+        dbc.Col(
+            html.Div(dcc.Graph(figure=gauge, config={"displayModeBar": False}),
+                     style={"background": "#0A0E1A", "border": "1px solid #1F2D45", "borderRadius": "14px"}),
+            md=5,
+        ),
+        dbc.Col(result_content, md=7),
+    ], className="g-3")
+
 
 if __name__ == "__main__":
     app.run(debug=True)
