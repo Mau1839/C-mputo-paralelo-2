@@ -404,13 +404,6 @@ El dashboard integra gráficos avanzados utilizando Plotly para representar:
 
 # Ejecución del proyecto
 
-## Instalar dependencias
-
-```bash
-pip install -r requirements.txt
-```
-
----
 
 ## Ejecutar recolección de datos
 
