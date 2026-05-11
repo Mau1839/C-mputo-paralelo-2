@@ -64,3 +64,23 @@ semaforo = asyncio.Semaphore(10)
 Esto permite limitar el número de solicitudes simultáneas, evitando saturar las APIs y mejorando la estabilidad del sistema durante la ejecución.
 
 ---
+
+Para ejecutar el proyecto es necesario crear un archivo `.env` en la raíz del proyecto con las credenciales correspondientes de ambas APIs.
+
+```env
+AIRLABS_API_KEY=TU_API_KEY
+OPENWEATHER_API_KEY=TU_API_KEY
+```
+---
+
+# Archivo de salida
+
+Los datos obtenidos se almacenan automáticamente dentro de la carpeta `data` en formato CSV.
+
+```text
+data/vuelos_clima_TIMESTAMP.csv
+```
+
+Cada archivo generado contiene la información recopilada durante la ejecución del sistema.
+
+---
