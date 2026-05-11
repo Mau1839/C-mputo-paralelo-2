@@ -20,3 +20,33 @@ Información de vuelos:
 Información climática:
 
  https://openweathermap.org/api
+
+# Variables recolectadas
+
+## Información de vuelos
+
+- `flight_iata`
+- `dep_iata`
+- `dep_time`
+- `dep_estimated`
+- `arr_iata`
+- `arr_time`
+- `status`
+- `delayed`
+
+---
+
+## Información climática
+
+- `weather_temp`
+- `weather_temp_max`
+- `weather_temp_min`
+- `weather_pressure`
+- `weather_humidity`
+- `weather_sea_level`
+- `weather_visibility`
+- `weather_wind_speed`
+- `weather_rain_1h`
+- `weather_clouds`
+
+---
