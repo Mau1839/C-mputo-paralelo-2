@@ -253,3 +253,87 @@ modelo.save_model(
 ```
 
 ---
+# Dashboard Interactivo
+
+El proyecto incluye un dashboard interactivo desarrollado con las librerías Dash, Plotly y Bootstrap para visualizar métricas, analizar información histórica y realizar predicciones de retrasos en tiempo real.
+
+El sistema carga automáticamente el modelo entrenado de CatBoost y permite al usuario interactuar con los datos mediante una interfaz moderna enfocada en análisis operacional de vuelos.
+
+---
+
+## Funcionalidades principales
+
+- Visualización de métricas generales del dataset:
+  - Retraso promedio.
+  - Retraso máximo.
+  - Total de vuelos analizados.
+  - Número de aeropuertos procesados.
+
+- Análisis visual de aeropuertos con mayor retraso promedio utilizando gráficas interactivas de barras.
+
+- Visualización de importancia de variables obtenidas desde el modelo entrenado:
+  - Ruta del vuelo.
+  - Aeropuerto de salida y llegada.
+  - Variables meteorológicas.
+  - Variables temporales y operacionales.
+
+- Simulador de predicción de retrasos:
+  - Selección de aeropuerto de origen y destino.
+  - Configuración manual de variables climáticas.
+  - Simulación de horarios y días de operación.
+  - Predicción de probabilidad de retraso en tiempo real.
+
+- Indicadores visuales dinámicos:
+  - Gauge chart de probabilidad de retraso.
+  - Alertas de riesgo operacional.
+  - Indicadores de vuelos en tiempo o con posible retraso.
+
+- Dashboard completamente estilizado mediante CSS personalizado:
+  - Tema oscuro moderno.
+  - Componentes responsivos.
+  - Visualizaciones optimizadas para monitoreo y análisis.
+
+---
+
+## Variables utilizadas por el simulador
+
+El dashboard utiliza las mismas variables procesadas durante el entrenamiento del modelo:
+
+### Información del vuelo
+
+- Aeropuerto de origen.
+- Aeropuerto de destino.
+- Ruta.
+- Hora del vuelo.
+- Día de la semana.
+
+### Variables meteorológicas
+
+- Temperatura.
+- Humedad.
+- Velocidad del viento.
+- Visibilidad.
+- Lluvia.
+- Nubosidad.
+- Presión atmosférica.
+
+### Variables derivadas
+
+- Hora pico.
+- Vuelo nocturno.
+- Clima severo.
+- Humedad alta.
+- Delta de temperatura.
+
+---
+
+## Visualización y análisis
+
+El dashboard integra gráficos avanzados utilizando Plotly para representar:
+
+- Importancia de características del modelo.
+- Distribución de retrasos por aeropuerto.
+- Indicadores de desempeño del modelo.
+- Probabilidad estimada de retraso.
+
+---
