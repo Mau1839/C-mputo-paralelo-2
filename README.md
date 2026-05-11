@@ -9,7 +9,7 @@ Mediante el uso de peticiones a APIs se realiza un procesamiento de datos para a
 
 ##  AirLabs API
 
-Información de vuelos:
+La API de AirLabs se utiliza para obtener información de vuelos en tiempo real, incluyendo horarios, estados de vuelo, aeropuertos de salida y llegada, así como indicadores de retraso.
 
  https://airlabs.co
 
@@ -17,13 +17,15 @@ Información de vuelos:
 
 ## OpenWeatherMap API
 
-Información climática:
+La API de OpenWeatherMap permite consultar información meteorológica asociada a cada aeropuerto, integrando variables climáticas relevantes para el análisis predictivo.
 
  https://openweathermap.org/api
 
 # Variables recolectadas
 
 ## Información de vuelos
+
+El dataset generado integra variables aeronáuticas y meteorológicas que posteriormente pueden utilizarse en modelos de Machine Learning y análisis estadístico.
 
 - `flight_iata`
 - `dep_iata`
@@ -48,5 +50,17 @@ Información climática:
 - `weather_wind_speed`
 - `weather_rain_1h`
 - `weather_clouds`
+
+---
+
+# Procesamiento concurrente
+
+El sistema implementa control de concurrencia mediante un semáforo:
+
+```python
+semaforo = asyncio.Semaphore(10)
+```
+
+Esto permite limitar el número de solicitudes simultáneas, evitando saturar las APIs y mejorando la estabilidad del sistema durante la ejecución.
 
 ---
